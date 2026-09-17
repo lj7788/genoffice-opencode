@@ -9,7 +9,9 @@ import type { ReactNode } from 'react'
 
 export {
   IconBullets,
+  IconCaret,
   IconNumbered,
+  IconOutlineView,
   IconIndentDec,
   IconIndentInc,
   IconTable,
@@ -19,6 +21,8 @@ export {
   IconUndo,
   IconRedo,
   IconCopy,
+  IconSearch,
+  IconSpellcheck,
 } from '../../../../docs/src/renderer/components/icons'
 
 interface IconProps {
@@ -70,10 +74,14 @@ export function IconHr(props: IconProps) {
   )
 }
 
+/* knobs sit at different offsets on purpose: three flush-left lines read as a
+ * hamburger/overflow menu, and left-aligned dots collide with IconBullets */
 export function IconProperties(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M2.5 4.4h11M2.5 8h11M2.5 11.6h6.2" />
+      <path d="M2.2 4.6h11.6M2.2 11.4h11.6" />
+      <circle cx="10.2" cy="4.6" r="1.7" fill="currentColor" stroke="none" />
+      <circle cx="5.6" cy="11.4" r="1.7" fill="currentColor" stroke="none" />
     </Svg>
   )
 }
@@ -175,5 +183,19 @@ export function IconQuoteMark(props: IconProps) {
       <path d="M3 4.5v7" />
       <path d="M6.4 5h6.8M6.4 8h6.8M6.4 11h4.4" />
     </Svg>
+  )
+}
+
+export function IconFolderTree({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path
+        d="M2.5 5.5A1.5 1.5 0 0 1 4 4h3.6c.4 0 .8.16 1.07.45L10 5.8h6A1.5 1.5 0 0 1 17.5 7.3v7.2A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5v-9z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path d="M2.5 8.5h15" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
   )
 }

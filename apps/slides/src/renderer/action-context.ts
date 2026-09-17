@@ -16,15 +16,24 @@ import type {
   TransitionKind,
 } from '../shared/ipc'
 import type { BrushFormat } from './format-brush'
+import type { InkTool } from './ink'
+import type { SlidesViewMode } from './components/ribbon-shared'
 import type { CustomShow } from './slideshow-utils'
 
 type Set<T> = React.Dispatch<React.SetStateAction<T>>
 
 // ── State payload types shared between App useState declarations and the ctx ──
 
+/** Viewport point the caret lands on when editing starts; select: 'word' picks the word there (double-click). */
+export interface EditCaret {
+  x: number
+  y: number
+  select?: 'word'
+}
+
 export interface EditingState {
   sourceId: string
-  caret?: { x: number; y: number }
+  caret?: EditCaret
   groupId?: string
   replaceWith?: string
 }
@@ -125,6 +134,10 @@ export interface ActionCtx {
   setBrushFormat: Set<BrushFormat | null>
   brushMode: 'once' | 'continuous' | null
   setBrushMode: Set<'once' | 'continuous' | null>
+  /** Freehand ink tool ('select' = not drawing); Esc drops back to select */
+  inkTool: InkTool
+  setInkTool: Set<InkTool>
+  viewMode: SlidesViewMode
 
   // Animations / transition
   animations: AnimationItem[]
@@ -167,6 +180,8 @@ export interface ActionCtx {
   setChartDataDialogOpen: Set<boolean>
   setFindOpen: Set<boolean>
   setPrintDlgOpen: Set<boolean>
+  /** Open the AI annotation popover on the current selection (no-op when nothing is selected) */
+  openAskPopover: () => void
   setZoom: Set<number>
   masterItems: MasterPartItem[] | null
 
@@ -191,4 +206,10 @@ export interface ActionCtx {
     preview?: boolean,
     groupId?: string,
   ) => Promise<void>
+  /** Open the format-background pane (canvas context menu entry) */
+  openBgFormat: () => void
+  /** Open the format pane for the selection (element context menu entry) */
+  openFormat: () => void
+  /** Open the "Change Shape" gallery popover for a shape (context menu entry) */
+  openChangeShape: (targetId: string, x: number, y: number) => void
 }

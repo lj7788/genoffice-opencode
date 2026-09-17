@@ -10,6 +10,7 @@ import {
 } from '../insert-presets'
 import type { StringKey } from '../i18n/locale'
 import { ChartKindThumb } from './ChartTypeDialog'
+import { TableInsertDialog } from './InsertDialogs'
 import { ShapePreview, SmartArtPreview } from './gallery-previews'
 import {
   Icon3d,
@@ -79,11 +80,11 @@ export function RibbonInsertTab({ rb }: { rb: RibbonTabCtx }) {
     setIconColor,
     setInsertDrop,
     setLayoutOpen,
-    setTableCustom,
+    setTableDialogOpen,
     setTableHover,
     setTableOpen,
     t,
-    tableCustom,
+    tableDialogOpen,
     tableHover,
     tableOpen,
   } = rb
@@ -92,13 +93,15 @@ export function RibbonInsertTab({ rb }: { rb: RibbonTabCtx }) {
       <Group label={t('ribbonGroupSlides')}>
         <div className="rb-drop-wrap">
           <button
-            className="rb-big"
+            className="rb-big rb-split"
             disabled={!hasDoc}
             onClick={onAddSlide}
             data-tip={t('ribbonNewSlideTip')}
           >
             <span className="rb-big-icon">
-              <IconNewSlide size={BIG} />
+              <span className="rb-split-main">
+                <IconNewSlide size={BIG} />
+              </span>
               <span
                 className={`rb-caret-hit${layoutOpen ? ' active' : ''}`}
                 data-tip={t('ribbonChooseLayoutNew')}
@@ -146,6 +149,7 @@ export function RibbonInsertTab({ rb }: { rb: RibbonTabCtx }) {
           >
             <span className="rb-big-icon">
               <IconTable size={BIG} />
+              <RbCaret />
             </span>
             <span>{t('ribbonGroupTable')}</span>
           </button>
@@ -171,43 +175,25 @@ export function RibbonInsertTab({ rb }: { rb: RibbonTabCtx }) {
                   )),
                 )}
               </div>
-              <div className="rb-table-custom">
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={tableCustom.r}
-                  onChange={(e) =>
-                    setTableCustom((v) => ({
-                      ...v,
-                      r: Math.max(1, Math.min(50, Number(e.target.value) || 1)),
-                    }))
-                  }
-                />
-                <span>×</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={tableCustom.c}
-                  onChange={(e) =>
-                    setTableCustom((v) => ({
-                      ...v,
-                      c: Math.max(1, Math.min(50, Number(e.target.value) || 1)),
-                    }))
-                  }
-                />
-                <button
-                  className="rb-table-custom-ok"
-                  onClick={() => {
-                    setTableOpen(false)
-                    onInsertTable(tableCustom.r, tableCustom.c)
-                  }}
-                >
-                  {t('paneOk')}
-                </button>
-              </div>
+              <button
+                className="rb-table-custom"
+                onClick={() => {
+                  setTableOpen(false)
+                  setTableDialogOpen(true)
+                }}
+              >
+                {t('ribbonTableInsertDialog')}
+              </button>
             </div>
+          )}
+          {tableDialogOpen && (
+            <TableInsertDialog
+              onInsert={(rows, cols) => {
+                setTableDialogOpen(false)
+                onInsertTable(rows, cols)
+              }}
+              onClose={() => setTableDialogOpen(false)}
+            />
           )}
         </div>
       </Group>

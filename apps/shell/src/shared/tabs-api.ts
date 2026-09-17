@@ -1,4 +1,4 @@
-export type TabKind = 'home' | 'docs' | 'sheets' | 'slides' | 'pdf' | 'markdown'
+export type TabKind = 'home' | 'docs' | 'sheets' | 'slides' | 'pdf' | 'markdown' | 'html'
 
 /** one open tab in the top tab strip; Home is always id 'home' and not closable */
 export interface TabSummary {
@@ -25,6 +25,12 @@ export interface TabsApi {
    * as showMenu.
    */
   showNewMenu(x: number, y: number): Promise<void>
+  /**
+   * pop up the application menu (File / Edit / View …) at (x, y). Windows and
+   * Linux hide the native menu bar under the tab strip; macOS keeps the
+   * system menu bar and never shows the button.
+   */
+  showAppMenu(x: number, y: number): Promise<void>
   /** move a tab to a new index in the strip; Home stays pinned at index 0 */
   reorder(id: string, toIndex: number): Promise<void>
   /** subscribe to tab list changes (open/close/activate/title updates); returns unsubscribe */
@@ -35,6 +41,10 @@ export interface TabsApi {
    * a focus change, so the shell relays it for them to dismiss popovers.
    */
   notifyChromePressed(): void
+  /** the main-process broadcast that notifyChromePressed (and a window drag)
+   * triggers; the shell's own popovers subscribe so a title-bar drag — which
+   * produces no DOM event — still dismisses them */
+  onChromePressed(handler: () => void): () => void
 }
 
 export const TABS_CHANNELS = {
@@ -43,6 +53,7 @@ export const TABS_CHANNELS = {
   close: 'tabs:close',
   showMenu: 'tabs:show-menu',
   showNewMenu: 'tabs:show-new-menu',
+  showAppMenu: 'tabs:show-app-menu',
   reorder: 'tabs:reorder',
   changed: 'tabs:changed',
   chromePressed: 'tabs:chrome-pressed',

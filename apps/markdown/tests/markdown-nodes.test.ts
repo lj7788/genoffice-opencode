@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import { Editor } from '@tiptap/core'
 import { buildExtensions } from '../src/renderer/editor/extensions'
+import { escapeBrackets } from '../src/renderer/editor/markdownEscape'
 
 // Undestroyed views leave DOMObserver flush timers that fire after jsdom teardown
 // ("document is not defined" unhandled error). Editors here are shared per describe,
@@ -77,6 +78,14 @@ describe('markdown round-trip for GFM nodes', () => {
     expect(stable).toBe(true)
   })
 
+  it('mermaid blocks stay plain fenced code in the file', () => {
+    const md = '```mermaid\nflowchart LR\n    A --> B\n```'
+    const { out, stable } = roundTrip(editor, md)
+    expect(out).toContain('```mermaid\nflowchart LR\n    A --> B\n```')
+    expect(stable).toBe(true)
+    expect(editor.markdown!.parse(md).content?.[0]?.attrs?.language).toBe('mermaid')
+  })
+
   it('nested lists serialize with 4-space indents (strict-CommonMark safe)', () => {
     // 2-space indents would be below the ordered item's content column ("1. "
     // = 3 chars), so GitHub would flatten the sub-list when re-parsing the file
@@ -92,6 +101,69 @@ describe('markdown round-trip for GFM nodes', () => {
     // files saved by earlier versions used 2-space indents — still parsed as nested
     const legacy = roundTrip(editor, '- a\n  - b')
     expect(legacy.out).toContain('\n    - b')
+  })
+})
+
+describe('math nodes — $ / $$ syntax (issue #100)', () => {
+  const editor = createEditor()
+
+  function collect(node: Record<string, unknown>, type: string): Record<string, unknown>[] {
+    const hits: Record<string, unknown>[] = []
+    if (node.type === type) hits.push(node)
+    for (const child of (node.content as Record<string, unknown>[] | undefined) ?? []) {
+      hits.push(...collect(child, type))
+    }
+    return hits
+  }
+
+  it('$$ array environment parses to block math with row breaks (\\\\) intact', () => {
+    const md = [
+      '$$',
+      '\\begin{array}{ll}',
+      '\\max & f = 1.25 x_{1} + 1.5 x_{2}, \\\\',
+      '\\text{s.t.} & 0.025 x_{1} + 0.05 x_{2} \\le 400, \\\\',
+      '& x_{1}, x_{2} \\ge 0.',
+      '\\end{array}',
+      '$$',
+    ].join('\n')
+    const manager = editor.markdown!
+    const doc = manager.parse(md) as Record<string, unknown>
+    const nodes = collect(doc, 'blockMath')
+    expect(nodes.length).toBe(1)
+    const latex = String((nodes[0].attrs as { latex: string }).latex)
+    expect(latex).toContain('\\begin{array}{ll}')
+    // the markdown escape pass must not eat the \\ row separators
+    expect(latex).toContain('\\\\')
+
+    const out = manager.serialize(doc)
+    expect(out).toContain('\\begin{array}{ll}')
+    expect(out).toContain('\\\\')
+    expect(JSON.stringify(manager.parse(out))).toBe(JSON.stringify(doc))
+  })
+
+  it('$$ aligned environment round-trips', () => {
+    const md = '$$\n\\begin{aligned}\na &= b + c \\\\\nd &= e\n\\end{aligned}\n$$'
+    const { out, stable } = roundTrip(editor, md)
+    expect(out).toContain('\\begin{aligned}')
+    expect(out).toContain('\\\\')
+    expect(stable).toBe(true)
+  })
+
+  it('inline $x_{1}$ becomes an inline math node and round-trips', () => {
+    const manager = editor.markdown!
+    const doc = manager.parse('the variable $x_{1}$ is free') as Record<string, unknown>
+    const nodes = collect(doc, 'inlineMath')
+    expect(nodes.length).toBe(1)
+    expect((nodes[0].attrs as { latex: string }).latex).toBe('x_{1}')
+    expect(manager.serialize(doc)).toBe('the variable $x_{1}$ is free')
+  })
+
+  it('currency amounts in plain text never turn into formulas', () => {
+    const manager = editor.markdown!
+    const md = 'I paid $5 and $10 in total'
+    const doc = manager.parse(md) as Record<string, unknown>
+    expect(collect(doc, 'inlineMath').length).toBe(0)
+    expect(manager.serialize(doc)).toBe(md)
   })
 })
 
@@ -150,5 +222,49 @@ describe('legacy HTML content degrades to plain markdown, keeping the text', () 
   it('u and mark tags drop the tag but keep the text', () => {
     const out = parseAndSerialize('a <u>underlined</u> and <mark>marked</mark> b')
     expect(out).toBe('a underlined and marked b')
+  })
+})
+
+describe('bracket escaping on save', () => {
+  const editor = createEditor()
+
+  it.each([
+    ['wiki-style link', 'See [[Foo]] and [[Bar|alias]].'],
+    ['citation marker', 'As shown in [1] and [2, p. 4].'],
+    ['bracketed tag', '[TODO] finish the intro'],
+  ])('keeps %s verbatim', (_name, md) => {
+    const { out, stable } = roundTrip(editor, md)
+    expect(out).toBe(md)
+    expect(stable).toBe(true)
+  })
+
+  it('still escapes text that would parse as a link', () => {
+    const { out, stable } = roundTrip(editor, 'literal \\[a](b) here')
+    expect(out).toBe('literal \\[a\\](b) here')
+    expect(stable).toBe(true)
+  })
+
+  it('still escapes a task marker typed as text', () => {
+    const md = '- \\[ ] not a task'
+    const { out, stable } = roundTrip(editor, md)
+    expect(out).toContain('\\[ \\] not a task')
+    expect(stable).toBe(true)
+  })
+
+  it('still escapes a reference definition typed as text', () => {
+    const { out, stable } = roundTrip(editor, '\\[ref]: not a definition')
+    expect(out).toBe('\\[ref\\]: not a definition')
+    expect(stable).toBe(true)
+  })
+
+  it('escapes an indented reference definition too', () => {
+    expect(escapeBrackets('   [ref]: /url')).toBe('   \\[ref\\]: /url')
+    expect(escapeBrackets('  [x] not a task')).toBe('  \\[x\\] not a task')
+  })
+
+  it('keeps escaping the other inline delimiters', () => {
+    const { out, stable } = roundTrip(editor, 'a \\* b \\_ c \\~ d')
+    expect(out).toBe('a \\* b \\_ c \\~ d')
+    expect(stable).toBe(true)
   })
 })

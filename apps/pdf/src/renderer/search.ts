@@ -1,4 +1,5 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist'
+import { foldCase } from '@genoffice/ui'
 
 /** One hit: original page + PDF user-space rects (multiple when spanning several text items) */
 export interface SearchMatch {
@@ -15,6 +16,8 @@ interface IndexedItem {
   h: number
   /** Rotated run (tilted baseline) — excluded from block grouping */
   rot?: boolean
+  /** pdf.js font id (e.g. 'g_d0_f7'); resolves to the run's font for edit previews */
+  font?: string
 }
 
 export interface PageEntry {
@@ -34,6 +37,7 @@ interface RawTextItem {
   width?: number
   height?: number
   hasEOL?: boolean
+  fontName?: string
 }
 
 /** Concatenate text per page + record each item's char range and PDF-space box (built once, cached per doc by caller) */
@@ -60,19 +64,20 @@ export async function buildSearchIndex(doc: PDFDocumentProxy): Promise<SearchInd
           w: it.width ?? 0,
           h,
           ...(rot ? { rot: true } : {}),
+          ...(typeof it.fontName === 'string' ? { font: it.fontName } : {}),
         })
         text += it.str
       }
       if (it.hasEOL) text += '\n'
     }
-    entries.push({ text, lower: text.toLowerCase(), items })
+    entries.push({ text, lower: foldCase(text), items })
   }
   return entries
 }
 
 /** Case-insensitive full-text search; rects linearly interpolated within items by char ratio (approximate; bounding box for rotated glyphs) */
 export function searchInIndex(index: SearchIndex, query: string): SearchMatch[] {
-  const q = query.toLowerCase()
+  const q = foldCase(query)
   if (!q) return []
   const matches: SearchMatch[] = []
   for (let pageIndex = 0; pageIndex < index.length; pageIndex++) {

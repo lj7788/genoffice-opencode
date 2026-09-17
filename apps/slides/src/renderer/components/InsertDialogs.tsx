@@ -3,6 +3,7 @@
  * Reuses SettingsModal's .modal-backdrop/.modal styles.
  */
 import React, { useEffect, useState } from 'react'
+import { Dropdown } from '@genoffice/ui'
 import type { LinkTargetOp } from '../../shared/ipc'
 import { EQUATION_GALLERY } from '../insert-presets'
 import { useI18n } from '../i18n/locale'
@@ -74,14 +75,17 @@ export function LinkDialog({
         ) : (
           <label>
             {t('ribbonDlgGoTo')}
-            <select value={slideIndex} onChange={(e) => setSlideIndex(Number(e.target.value))}>
-              {Array.from({ length: slideCount }, (_, i) => (
-                <option key={i} value={i}>
-                  {t('ribbonSlideN', { n: i + 1 })}
-                  {i === currentSlide ? t('ribbonCurrentSlideSuffix') : ''}
-                </option>
-              ))}
-            </select>
+            <Dropdown
+              value={String(slideIndex)}
+              ariaLabel={t('ribbonDlgGoTo')}
+              options={Array.from({ length: slideCount }, (_, i) => ({
+                value: String(i),
+                label:
+                  t('ribbonSlideN', { n: i + 1 }) +
+                  (i === currentSlide ? t('ribbonCurrentSlideSuffix') : ''),
+              }))}
+              onPick={(v) => setSlideIndex(Number(v))}
+            />
           </label>
         )}
         <div className="modal-actions">
@@ -242,6 +246,66 @@ export function EquationDialog({ onInsert, onClose }: EquationDialogProps) {
           <button onClick={onClose}>{t('ribbonCancel')}</button>
           <button className="primary" disabled={!text.trim()} onClick={() => onInsert(text.trim())}>
             {t('ribbonInsert')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Insert table (explicit size beyond the 8×10 hover grid) ──────────────
+
+const MAX_TABLE_SIDE = 50
+
+export function TableInsertDialog({
+  onInsert,
+  onClose,
+}: {
+  onInsert: (rows: number, cols: number) => void
+  onClose: () => void
+}) {
+  const { t } = useI18n()
+  const [cols, setCols] = useState(5)
+  const [rows, setRows] = useState(2)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const insert = () => onInsert(rows, cols)
+
+  const countInput = (label: string, value: number, set: (v: number) => void, focus = false) => (
+    <label>
+      {label}
+      <input
+        type="number"
+        min={1}
+        max={MAX_TABLE_SIDE}
+        value={value}
+        autoFocus={focus}
+        onChange={(e) => {
+          const v = Math.round(Number(e.target.value))
+          set(Number.isFinite(v) ? Math.min(MAX_TABLE_SIDE, Math.max(1, v)) : 1)
+        }}
+        onKeyDown={(e) => e.key === 'Enter' && insert()}
+      />
+    </label>
+  )
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2>{t('ribbonTableInsertDialog')}</h2>
+        <div className="dlg-two-col">
+          {countInput(t('ribbonTableColsLabel'), cols, setCols, true)}
+          {countInput(t('ribbonTableRowsLabel'), rows, setRows)}
+        </div>
+        <div className="modal-actions">
+          <button onClick={onClose}>{t('ribbonCancel')}</button>
+          <button className="primary" onClick={insert}>
+            {t('ribbonOk')}
           </button>
         </div>
       </div>
