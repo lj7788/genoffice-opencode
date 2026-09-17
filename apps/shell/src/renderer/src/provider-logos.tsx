@@ -230,6 +230,7 @@ const LOGOS: Record<AiProviderId, ReactNode> = {
       />
     </svg>
   ),
+  opencode: opencodeLogo,
   'opencode-zen': opencodeLogo,
   'opencode-go': opencodeLogo,
   custom: (
